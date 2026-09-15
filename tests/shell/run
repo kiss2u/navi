@@ -59,9 +59,8 @@ case::query_driven() {
    shell::trigger "$session"
 
    local -r snippet_marker='echo "NAVI_TEST::ping_ok::END"'
-   local -r fzf_marker='[0-9]+/[0-9]+'
 
-   if ! shell::wait_for "$session" "(${snippet_marker}|${fzf_marker})"; then
+   if ! shell::wait_for "$session" "(${snippet_marker}|${SHELL_TESTS_FZF_REGEX})"; then
       log::error "[$shell] neither snippet nor fzf appeared after C-g"
       shell::pane "$session" 1>&2
       shell::stop "$session"
@@ -109,9 +108,8 @@ case::multiline_preserved() {
    shell::trigger "$session"
 
    local -r snippet_marker='NAVI_TEST::multi_line_1::END'
-   local -r fzf_marker='[0-9]+/[0-9]+'
 
-   if ! shell::wait_for "$session" "(${snippet_marker}|${fzf_marker})"; then
+   if ! shell::wait_for "$session" "(${snippet_marker}|${SHELL_TESTS_FZF_REGEX})"; then
       log::error "[$shell] multi-line snippet did not appear after C-g"
       shell::pane "$session" 1>&2
       shell::stop "$session"
@@ -138,6 +136,136 @@ case::multiline_preserved() {
    fi
    if [ "$rc" -eq 0 ] && ! shell::wait_for "$session" 'NAVI_TEST::multi_line_2::END' "${SHELL_TESTS_MULTILINE_TIMEOUT:-15}"; then
       log::error "[$shell] second sentinel not on its own output line (newlines were likely flattened)"
+      shell::pane "$session" 1>&2
+      rc=1
+   fi
+
+   shell::stop "$session"
+   return "$rc"
+}
+
+# Regression test for https://github.com/denisidoro/navi/issues/1017.
+#
+# When `--best-match` already answered the query the widget must splice it in
+# and stop. The fish plugin used to test a variable that fish had already
+# destroyed at the end of its enclosing `if` block, so the fallback always
+# fired and fzf popped up on top of the snippet it had just inserted.
+#
+# Not run for bash, whose widget has no --best-match path and always picks.
+case::best_match_skips_picker() {
+   local -r shell="$1"
+   local session
+   session="$(shell::start "$shell" "bestmatch")" || return 1
+
+   shell::type "$session" "ping"
+   shell::trigger "$session"
+
+   local rc=0
+   if ! shell::wait_for "$session" 'echo "NAVI_TEST::ping_ok::END"'; then
+      log::error "[$shell] --best-match snippet never reached the buffer"
+      shell::pane "$session" 1>&2
+      rc=1
+   fi
+
+   if [ "$rc" -eq 0 ] && ! shell::refute_appears "$session" "$SHELL_TESTS_FZF_REGEX"; then
+      log::error "[$shell] fzf opened even though --best-match already matched"
+      shell::pane "$session" 1>&2
+      rc=1
+   fi
+
+   shell::stop "$session"
+   return "$rc"
+}
+
+# A second Ctrl-G on an untouched best match is the documented escape hatch
+# into the interactive picker (zsh does this via $LASTWIDGET, fish by
+# remembering the buffer it wrote). Without it, `--best-match` would be the
+# only reachable behaviour for a non-empty prompt.
+case::repeat_press_opens_picker() {
+   local -r shell="$1"
+   local session
+   session="$(shell::start "$shell" "repeat")" || return 1
+
+   shell::type "$session" "ping"
+   shell::trigger "$session"
+
+   local rc=0
+   if ! shell::wait_for "$session" 'echo "NAVI_TEST::ping_ok::END"'; then
+      log::error "[$shell] --best-match snippet never reached the buffer"
+      shell::pane "$session" 1>&2
+      shell::stop "$session"
+      return 1
+   fi
+
+   shell::trigger "$session"
+   if ! shell::wait_for "$session" "$SHELL_TESTS_FZF_REGEX"; then
+      log::error "[$shell] second C-g did not open the picker"
+      shell::pane "$session" 1>&2
+      shell::stop "$session"
+      return 1
+   fi
+
+   # Accepting leaves the same snippet in the buffer, so the assertions below
+   # hold whether the picker had a match to offer or not.
+   shell::enter "$session"
+   if ! shell::wait_for "$session" 'echo "NAVI_TEST::ping_ok::END"'; then
+      log::error "[$shell] buffer lost the snippet after accepting the picker"
+      shell::pane "$session" 1>&2
+      shell::stop "$session"
+      return 1
+   fi
+
+   shell::enter "$session"
+   if ! shell::wait_for "$session" '^NAVI_TEST::ping_ok::END'; then
+      log::error "[$shell] sentinel never appeared after running buffer"
+      shell::pane "$session" 1>&2
+      rc=1
+   fi
+
+   shell::stop "$session"
+   return "$rc"
+}
+
+# Regression test for https://github.com/denisidoro/navi/issues/1017.
+#
+# Only the command under the cursor may be replaced. The fish plugin used to
+# call `commandline --replace`, which rewrites the whole buffer and threw away
+# everything to the left of the pipe.
+case::prefix_preserved() {
+   local -r shell="$1"
+   local session
+   session="$(shell::start "$shell" "prefix")" || return 1
+
+   shell::type "$session" "true | ping"
+   shell::trigger "$session"
+
+   local -r spliced='true | echo "NAVI_TEST::ping_ok::END"'
+   # same string as an extended regex: the pipe would otherwise alternate
+   local -r spliced_regex='true \| echo "NAVI_TEST::ping_ok::END"'
+
+   if ! shell::wait_for "$session" "(${spliced_regex}|${SHELL_TESTS_FZF_REGEX})"; then
+      log::error "[$shell] neither snippet nor fzf appeared after C-g"
+      shell::pane "$session" 1>&2
+      shell::stop "$session"
+      return 1
+   fi
+
+   # bash always opens the picker; accept the single match.
+   if ! shell::pane "$session" | grep -Fq "$spliced"; then
+      shell::enter "$session"
+      if ! shell::wait_for "$session" "$spliced_regex"; then
+         log::error "[$shell] left-hand side of the pipe did not survive the replacement"
+         shell::pane "$session" 1>&2
+         shell::stop "$session"
+         return 1
+      fi
+   fi
+
+   shell::enter "$session"
+
+   local rc=0
+   if ! shell::wait_for "$session" '^NAVI_TEST::ping_ok::END'; then
+      log::error "[$shell] sentinel never appeared after running buffer"
       shell::pane "$session" 1>&2
       rc=1
    fi
@@ -173,6 +301,14 @@ for shell in bash zsh fish; do
    fi
    test::set_suite "${shell} regressions"
    test::run "multiline_snippet (#1010)" case::multiline_preserved "$shell"
+   test::run "pipe_prefix (#1017)"       case::prefix_preserved    "$shell"
+
+   # bash's widget always opens the picker, so it has neither a --best-match
+   # shortcut to skip nor a second-press escape hatch out of one.
+   if [ "$shell" != "bash" ]; then
+      test::run "best_match_skips_picker (#1017)"   case::best_match_skips_picker   "$shell"
+      test::run "repeat_press_opens_picker (#1017)" case::repeat_press_opens_picker "$shell"
+   fi
 done
 
 test::finish

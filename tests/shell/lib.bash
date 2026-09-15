@@ -23,6 +23,9 @@ readonly SHELL_TESTS_RC_DIR="${SHELL_TESTS_HOME}/rc"
 # need a beat to start, especially on cold CI runners.
 readonly SHELL_TESTS_WAIT_TIMEOUT="${SHELL_TESTS_WAIT_TIMEOUT:-15}"
 
+# fzf's "matches/total" counter, i.e. proof that the picker is on screen.
+readonly SHELL_TESTS_FZF_REGEX='[0-9]+/[0-9]+'
+
 # Display marker for bash/zsh PS1/PROMPT and fish "$SHELL_TESTS_PROMPT_TEXT".
 readonly SHELL_TESTS_PROMPT_MARKER='NAVIPROMPT> '
 # Pane detection: tmux capture-pane often strips trailing spaces, so match
@@ -114,6 +117,25 @@ shell::wait_for() {
 
 shell::wait_for_prompt() {
    shell::wait_for "$1" "$SHELL_TESTS_PROMPT_REGEX" "${2:-}"
+}
+
+# Assert `pattern` (extended regex) never shows up in the pane. Polls for
+# `settle` seconds rather than checking once, so a pane that is merely slow
+# to render is still caught. Returns 0 if absent, 1 if it appeared.
+shell::refute_appears() {
+   local -r session="$1"
+   local -r pattern="$2"
+   local -r settle="${3:-3}"
+   local -r deadline=$(( $(date +%s) + settle ))
+
+   while [ "$(date +%s)" -lt "$deadline" ]; do
+      if shell::pane "$session" | grep -Eq "$pattern"; then
+         return 1
+      fi
+      sleep 0.2
+   done
+
+   return 0
 }
 
 # Start a fresh tmux session for the given shell. Returns the session

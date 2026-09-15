@@ -10,10 +10,18 @@ Widgets are 3rd-party contributions and integrate Navi with 3rd-party software s
 | Shell      | Navi support       |
 |------------|--------------------|
 | Bash       | :white_check_mark: |
-| Fish       |                    |
-| Zsh        |                    |
+| Fish       | :white_check_mark: |
+| Zsh        | :white_check_mark: |
 | NuShell    | :white_check_mark: |
 | PowerShell | :white_check_mark: |
+
+## Fish Widget
+
+The fish widget replaces the command under the cursor, so anything to the left of a pipe or a `&&` is left alone.
+
+- on an empty prompt, `Ctrl+G` opens the picker
+- with something typed, `Ctrl+G` replaces it with the best match for it, without opening the picker
+- pressing `Ctrl+G` again, before editing that result, opens the picker with your original text as the query
 
 ## PowerShell Widget
 
