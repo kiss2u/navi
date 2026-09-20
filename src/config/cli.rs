@@ -19,24 +19,24 @@ use clap::{crate_version, Parser, Subcommand};
     Run \x1b[0;32mnavi fn welcome\x1b[0;0m to browse the cheatsheet for navi itself
 
 \x1b[0;33mEXAMPLES:\x1b[0m
-    navi                                         # default behavior
-    navi fn welcome                              # show cheatsheets for navi itself
-    navi --print                                 # doesn't execute the snippet
-    navi --tldr docker                           # search for docker cheatsheets using tldr
-    navi --cheatsh docker                        # search for docker cheatsheets using cheatsh
-    navi --path '/some/dir:/other/dir'           # use .cheat files from custom paths
-    navi --query git                             # filter results by \"git\"
-    navi --query 'create db' --best-match        # autoselect the snippet that best matches a query
-    db=my navi --query 'create db' --best-match  # same, but set the value for the <name> variable
-    navi repo add denisidoro/cheats              # import cheats from a git repository
-    eval \"$(navi widget zsh)\"                    # load the zsh widget
-    navi --finder 'skim'                         # set skim as finder, instead of fzf
-    navi --fzf-overrides '--with-nth 1,2'        # show only the comment and tag columns
-    navi --fzf-overrides '--no-select-1'         # prevent autoselection in case of single line
-    navi --fzf-overrides-var '--no-select-1'     # same, but for variable selection
-    navi --fzf-overrides '--nth 1,2'             # only consider the first two columns for search
-    navi --fzf-overrides '--no-exact'            # use looser search algorithm
-    navi --tag-rules='git,!checkout'             # show non-checkout git snippets only")]
+    navi                                           # default behavior
+    navi fn welcome                                # show cheatsheets for navi itself
+    navi --print                                   # doesn't execute the snippet
+    navi --tldr docker                             # search for docker cheatsheets using tldr
+    navi --cheatsh docker                          # search for docker cheatsheets using cheatsh
+    navi --path '/some/dir:/other/dir'             # use .cheat files from custom paths
+    navi --query git                               # filter results by \"git\"
+    navi --query 'create db' --best-match          # autoselect the snippet that best matches a query
+    name=my navi --query 'create db' --best-match  # same, but set the value for the <name> variable
+    navi repo add denisidoro/cheats                # import cheats from a git repository
+    eval \"$(navi widget zsh)\"                      # load the zsh widget
+    navi --finder 'skim'                           # set skim as finder, instead of fzf
+    navi --fzf-overrides '--with-nth 1,2'          # show only the comment and tag columns
+    navi --fzf-overrides '--no-select-1'           # prevent autoselection in case of single line
+    navi --fzf-overrides-var '--no-select-1'       # same, but for variable selection
+    navi --fzf-overrides '--nth 1,2'               # only consider the first two columns for search
+    navi --fzf-overrides '--no-exact'              # use looser search algorithm
+    navi --tag-rules='git,!checkout'               # show non-checkout git snippets only")]
 #[clap(version = crate_version!())]
 pub(super) struct ClapConfig {
     /// Colon-separated list of paths containing .cheat files
